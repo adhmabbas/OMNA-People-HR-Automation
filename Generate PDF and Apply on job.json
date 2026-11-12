@@ -1,0 +1,142 @@
+{
+  "name": "Generate PDF and Apply on job",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "cover_letter_text"
+            },
+            {
+              "name": "hiring_manager_email"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "9b678c0c-cfcc-44b1-bd5c-62927b6bad2a",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.html2pdf.app/v1/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "html",
+              "value": "=<div style=\"font-family: Arial, sans-serif; line-height: 1.6; padding: 30px; color: #222;\">   <h2 style=\"color: #1a365d; border-bottom: 2px solid #2b6cb0; padding-bottom: 8px;\">Cover Letter</h2>   <div style=\"white-space: pre-line; margin-top: 20px;\">{{ $json.cover_letter_text }}</div> </div>"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "d025cca4-e2df-4309-9e1a-c48f960bb634",
+      "name": "Get PDF File"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.hiring_manager_email }}",
+        "subject": "Job Application - Cover Letter ",
+        "message": "Please find my attached cover letter for the open position.",
+        "options": {
+          "appendAttribution": false,
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "cover_letter_pdf"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "4f97d29d-8193-4158-bb13-57a9c8506728",
+      "name": "Apply on job",
+      "webhookId": "d90ba3e8-4031-43d6-adaf-5716fc58266d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Y0C1REGBGPmMgN7T",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Get PDF File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get PDF File": {
+      "main": [
+        [
+          {
+            "node": "Apply on job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "34swIVVb8VQu8PfJ",
+    "timezone": "Africa/Cairo",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "d1bca5db-0df5-414e-9449-10071ba89768",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d58abe3d026105302dfaaae407886b4870984664c700ea400be5f856e1e5d913"
+  },
+  "nodeGroups": [],
+  "id": "BGleEzMbjFqp2Lpy",
+  "tags": []
+}

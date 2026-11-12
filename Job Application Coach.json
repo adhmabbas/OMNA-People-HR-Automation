@@ -1,0 +1,675 @@
+{
+  "name": "Job Application Coach",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Job Application Coaching",
+        "formDescription": "Paste a job description and your CV, to know if your skills and experience match the job description and I will show to you your Strengths and weaknesses to apply on this job.\n",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Name",
+              "placeholder": "your name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "placeholder": "Your email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Job description",
+              "fieldType": "textarea",
+              "placeholder": "Paste full job post here",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Your CV",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".pdf",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "Your response has been recorded and will send to you an email with review."
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -48,
+        -48
+      ],
+      "id": "28bcacd9-8d3e-41fa-a0d6-f5021fbfa277",
+      "name": "Job Application Form",
+      "webhookId": "a34b739e-5015-4151-b061-7b69b1e456d9"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eb2e2ac4-39ac-45be-854e-f2660c52284c",
+              "name": "name",
+              "value": "={{ $('Job Application Form').item.json.Name }}",
+              "type": "string"
+            },
+            {
+              "id": "72628093-7357-4ab4-a688-270477409b5b",
+              "name": "email",
+              "value": "={{ $('Job Application Form').item.json.Email }}",
+              "type": "string"
+            },
+            {
+              "id": "dfa5a1d5-c2cb-4989-9dd2-b960b2f18c1b",
+              "name": "job-desecription",
+              "value": "={{ $('Job Application Form').item.json[\"Job description\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "df0fc1a5-c7f8-443f-836f-6f143ed387bc",
+              "name": "CV-text",
+              "value": "={{ $json.content.parts[0].text }}",
+              "type": "string"
+            },
+            {
+              "id": "98cc2e41-f08d-4a94-93c0-f2caa2283efa",
+              "name": "Hiring manager Email ",
+              "value": "={{ $json.extractedEmail }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        768,
+        -48
+      ],
+      "id": "1d167a66-8c63-417f-8cc4-d96569dd598e",
+      "name": "Prepare Application"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Prepare a job application package for this candidate.\n \nCandidate name: {{ $json.name }}\n \nJOB DESCRIPTION:\n{{ $json[\"job-desecription\"] }}\n \nCANDIDATE CV:\n{{ $json[\"CV-text\"] }}",
+        "options": {
+          "systemMessage": "=You are a senior career coach who manages a team of four specialist agents, available to you as tools:\n- CV Matcher: scores how well the CV fits the job and lists strengths and gaps.\n- Cover Letter Writer: writes a tailored cover letter.\n- Interview Coach: prepares likely interview questions with model answers.\n- Applying job: takes output from \"Cover Letter agent\", put it at pdf file to send it to hiring manager for apply on this job.\n \nHow to work:\n1. Call CV Matcher first.\n2. Then call Cover Letter Writer, and include the CV Matcher's strengths and gaps in your task message.\n3. Then call Interview Coach, and include the CV Matcher's gaps in your task message.\n4. then Call Applying job, providing it with the cover letter generated in step 2 so it can send the application.\n5. Each specialist automatically receives the job description and the CV.\n6. You MUST call all four specialists, each exactly once, before your final answer.\n \nYour final answer is only the opening of the report (the specialists' full work is added automatically after it). Write in Markdown:\n- One greeting line using the candidate's first name.\n- A 2-sentence honest summary of the match, including the score from CV Matcher.\n- ### Your Next 3 Steps: three short, practical action items.\nKeep it under 120 words and encouraging.",
+          "returnIntermediateSteps": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        976,
+        -48
+      ],
+      "id": "c2b7d15c-c918-4838-8097-09b9740f38ab",
+      "name": "Career Coach"
+    },
+    {
+      "parameters": {
+        "toolDescription": "AI Agent compare my skills with requirements of job description.",
+        "text": "=TASK FROM THE CAREER COACH:\n{{ $fromAI('task', 'What this specialist should do, plus any earlier results it needs (for example the CV Matcher strengths and gaps)', 'string') }}\n \nJOB DESCRIPTION:\n{{ $('Prepare Application').item.json[\"job-desecription\"] }}\nCANDIDATE CV:\n{{ $('Prepare Application').item.json[\"CV-text\"] }}",
+        "options": {
+          "systemMessage": "You are an experienced technical recruiter. Compare the CV with the job description and reply in exactly this format:\n \n**Match Score: <number>/100**: <one short sentence why>\n \n### Strengths\n4 bullets. Each bullet: the requirement met, then a dash and short proof from the CV (max 15 words).\n \n### Gaps\n3 bullets. Each bullet: the missing skill, then a dash and one practical way to close it (max 20 words).\n \n### Keywords to Add\nOne line with up to 5 comma-separated keywords from the job post the candidate can honestly add to the CV.\n \nBe honest. Never invent experience the CV does not show. Maximum 180 words.\n \nFormatting rules (very important):\n- Never use tables, code blocks or horizontal lines.\n- Use short ### headings and simple bullet points (one line each).\n- No quotes from the CV, just short facts.\n- Be concise."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        560,
+        224
+      ],
+      "id": "bb9950c8-5822-4b5d-827e-5c589fd83589",
+      "name": "CV Matcher"
+    },
+    {
+      "parameters": {
+        "toolDescription": "AI Agent that can make questions that Simulates probable interview questions.",
+        "text": "=TASK FROM THE CAREER COACH:\n{{ $fromAI('task', 'What this specialist should do, plus any earlier results it needs (for example the CV Matcher strengths and gaps)', 'string') }}\n \nJOB DESCRIPTION:\n{{ $('Prepare Application').item.json[\"job-desecription\"] }}\nCANDIDATE CV:\n{{ $('Prepare Application').item.json[\"CV-text\"] }}",
+        "options": {
+          "systemMessage": "You are an interview coach. Write 5 likely interview questions with short model answers, in exactly this format:\n \n**1. <question>**\n<model answer, maximum 50 words>\n \nInclude: 2 technical questions about the main required skills, 2 behavioral questions (answer briefly in STAR style: situation, action, result), and 1 question about the candidate's biggest gap with an honest learning-plan answer.\nBase every answer on the real CV.\n \nFormatting rules (very important):\n- Never use tables, code blocks or horizontal lines.\n- Use short ### headings and simple bullet points (one line each).\n- No quotes from the CV, just short facts.\n- Be concise."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        1168,
+        224
+      ],
+      "id": "e612dfe8-7c5e-42fb-8ca9-605ecca16952",
+      "name": "Interview Coach"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        560,
+        416
+      ],
+      "id": "e46a5b7c-3f0b-45f5-b0e3-78eb1d90f72c",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "cLE5ZkubKoYfVkCm",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        864,
+        416
+      ],
+      "id": "6fcaa26c-a033-4c5b-b52c-75ac6f81542d",
+      "name": "Groq Chat Model1",
+      "credentials": {
+        "groqApi": {
+          "id": "cLE5ZkubKoYfVkCm",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        416
+      ],
+      "id": "7e3681cc-fa11-4ea7-832a-f4a4ba379a8a",
+      "name": "Groq Chat Model2",
+      "credentials": {
+        "groqApi": {
+          "id": "cLE5ZkubKoYfVkCm",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const run = $input.first().json;\nconst steps = run.intermediateSteps || [];\n\nconst clean = value => {\n  if (!value) return '';\n  if (typeof value === 'object') {\n    return value.output ?? value.response ?? value.text ?? JSON.stringify(value);\n  }\n  try {\n    const parsed = JSON.parse(value);\n    const first = Array.isArray(parsed) ? parsed[0] : parsed;\n    return first.output ?? first.response ?? first.text ?? value;\n  } catch {\n    return String(value);\n  }\n};\n\n// محاولة استخراج النتيجة من خطوات الـ Agent، مع Fallback لقراءة النود مباشرة إذا لم توجد\nconst resultOf = (word, directNodeName) => {\n  const step = steps.filter(s => String(s.action?.tool || '').toLowerCase().includes(word)).pop();\n  if (step && step.observation) {\n    const res = clean(step.observation);\n    if (res && res.trim().length > 0) return res;\n  }\n  \n  // في حال فشل الاستخراج من intermediateSteps، نجلب المخرج مباشرة من النود المنفذة\n  if (directNodeName) {\n    try {\n      const nodeData = $(directNodeName).first().json;\n      const res = nodeData.output ?? nodeData.response ?? nodeData.text ?? '';\n      if (res && res.trim().length > 0) return clean(res);\n    } catch (e) {\n      // النود لم تنفذ\n    }\n  }\n\n  return null;\n};\n\nconst sections = [\n  ['Match Analysis', resultOf('matcher', 'CV Matcher'), 'CV Matcher'],\n  ['Tailored Cover Letter', resultOf('letter', 'Cover Letter Writer'), 'Cover Letter Writer'],\n  ['Interview Preparation', resultOf('interview', 'Interview Coach'), 'Interview Coach'],\n];\n\nconst report = [run.output]\n  .concat(sections.map(([title, body, agent]) => '## ' + title + '\\n\\n' + (body || '_The ' + agent + ' did not run this time. Please submit the form again._')))\n  .join('\\n\\n');\n\nreturn [{ json: { report, specialistsUsed: sections.filter(s => s[1]).length } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        -48
+      ],
+      "id": "ae3fba1e-b374-4c53-8c28-07d5a367e675",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "mode": "markdownToHtml",
+        "markdown": "={{ $json.report }}",
+        "destinationKey": "HTML Report",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        -48
+      ],
+      "id": "eb9b1391-2753-4c96-829e-2e3b5dfbf36a",
+      "name": "Markdown"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Job Application Form').item.json.Email }}",
+        "subject": "=Job Application Coaching Report ({{ $('Job Application Form').item.json.Name }})",
+        "message": "=<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Job Application Coaching Report</title>\n</head>\n<body style=\"margin: 0; padding: 25px 10px; background-color: #f0f7fc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #2c3e50; line-height: 1.6;\">\n\n  <div style=\"max-width: 680px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(56, 149, 211, 0.1); border: 1px solid #e1eef8;\">\n    \n    <!-- Header -->\n    <div style=\"background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); padding: 35px 30px; text-align: center; color: #ffffff;\">\n      <div style=\"font-size: 38px; margin-bottom: 8px;\">🚀</div>\n      <h1 style=\"margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px;\">Job Application Coaching Report</h1>\n      <p style=\"margin: 8px 0 0; font-size: 15px; opacity: 0.95;\">Career Strategy &amp; Application Kit</p>\n    </div>\n\n    <div style=\"padding: 30px;\">\n      \n      <!-- Greeting & Overview Card -->\n      <div style=\"background-color: #f4faff; border-left: 5px solid #0ea5e9; border-radius: 0 12px 12px 0; padding: 20px; margin-bottom: 25px;\">\n        <p style=\"margin: 0 0 12px; font-size: 16px; font-weight: 600; color: #0369a1;\">👋 Hi Mariam,</p>\n        <p style=\"margin: 0; font-size: 14.5px; color: #334155;\">\n          You are a fantastic match for the <strong>Junior AI Automation Developer</strong> role at <strong>Nile Flow Technologies</strong>, with an impressive score of <strong style=\"color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 6px;\">85/100</strong> due to your direct experience with n8n and RAG projects. Your technical foundation is strong, though focusing on Docker and vector databases will help you stand out even more during the interview stage.\n        </p>\n      </div>\n\n      <!-- Next Steps -->\n      <div style=\"background: #ffffff; border: 1px solid #e0f2fe; border-radius: 12px; padding: 20px; margin-bottom: 28px; box-shadow: 0 2px 8px rgba(14, 165, 233, 0.05);\">\n        <h3 style=\"margin: 0 0 15px; font-size: 17px; color: #0284c7; display: flex; align-items: center;\">\n          <span style=\"margin-right: 8px;\">🎯</span> Your Next 3 Steps\n        </h3>\n        <ol style=\"margin: 0; padding-left: 20px; color: #475569; font-size: 14px;\">\n          <li style=\"margin-bottom: 10px;\"><strong>Monitor your inbox:</strong> Keep a close eye on your email for a response from the hiring manager.</li>\n          <li style=\"margin-bottom: 10px;\"><strong>Upskill immediately:</strong> Spend your weekend building a simple project using a vector database (like Pinecone) or containerizing a workflow with Docker to address those specific gaps.</li>\n          <li style=\"margin-bottom: 0;\"><strong>Prepare your stories:</strong> Practice answering the interview questions provided, specifically focusing on your DeltaRetail internship success story.</li>\n        </ol>\n        <p style=\"margin: 15px 0 0; font-weight: 600; color: #0ea5e9; font-size: 14px;\">✨ Good luck!</p>\n      </div>\n\n      <!-- Section: Match Analysis -->\n      <div style=\"margin-bottom: 28px;\">\n        <div style=\"border-bottom: 2px solid #e0f2fe; padding-bottom: 8px; margin-bottom: 16px;\">\n          <h2 style=\"margin: 0; font-size: 20px; color: #0369a1; display: flex; align-items: center;\">\n            <span style=\"margin-right: 8px;\">📊</span> Match Analysis\n          </h2>\n        </div>\n        \n        <div style=\"background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; margin-bottom: 15px;\">\n          <p style=\"margin: 0; font-size: 14.5px;\">\n            <strong style=\"color: #0284c7;\">Match Score: 85/100</strong> — Strong technical fit but lacks vector DB and Docker experience.\n          </p>\n        </div>\n\n        <!-- Strengths & Gaps Grid -->\n        <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"margin-bottom: 15px;\">\n          <tr>\n            <td style=\"vertical-align: top; width: 50%; padding-right: 8px;\">\n              <div style=\"background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 15px; min-height: 175px;\">\n                <h4 style=\"margin: 0 0 10px; color: #166534; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;\">💪 Strengths</h4>\n                <ul style=\"margin: 0; padding-left: 18px; font-size: 13px; color: #14532d; line-height: 1.5;\">\n                  <li style=\"margin-bottom: 6px;\">Bachelor’s degree in CS (Cairo Univ, 2025).</li>\n                  <li style=\"margin-bottom: 6px;\">Built 6 production n8n automations.</li>\n                  <li style=\"margin-bottom: 6px;\">JS/Python in Code nodes; TA for Python.</li>\n                  <li>RAG chatbot with OpenAI, Groq, Gemini APIs.</li>\n                </ul>\n              </div>\n            </td>\n            <td style=\"vertical-align: top; width: 50%; padding-left: 8px;\">\n              <div style=\"background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 15px; min-height: 175px;\">\n                <h4 style=\"margin: 0 0 10px; color: #92400e; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;\">⚠️ Gaps &amp; Actions</h4>\n                <ul style=\"margin: 0; padding-left: 18px; font-size: 13px; color: #78350f; line-height: 1.5;\">\n                  <li style=\"margin-bottom: 6px;\"><strong>Vector DB:</strong> Build a Pinecone retrieval project.</li>\n                  <li style=\"margin-bottom: 6px;\"><strong>Docker/Linux:</strong> Containerize sample workflows.</li>\n                  <li><strong>Presentations:</strong> Lead demo sessions or meetups.</li>\n                </ul>\n              </div>\n            </td>\n          </tr>\n        </table>\n\n        <!-- Keywords Badges -->\n        <div style=\"margin-top: 12px;\">\n          <span style=\"font-size: 13px; font-weight: 600; color: #64748b; margin-right: 8px;\">🏷️ Keywords to Add:</span>\n          <span style=\"display: inline-block; background: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 12px; margin: 3px 2px;\">n8n</span>\n          <span style=\"display: inline-block; background: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 12px; margin: 3px 2px;\">REST APIs</span>\n          <span style=\"display: inline-block; background: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 12px; margin: 3px 2px;\">Prompt Engineering</span>\n          <span style=\"display: inline-block; background: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 12px; margin: 3px 2px;\">RAG</span>\n          <span style=\"display: inline-block; background: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 12px; margin: 3px 2px;\">Python</span>\n        </div>\n      </div>\n\n      <!-- Section: Tailored Cover Letter -->\n      <div style=\"margin-bottom: 30px;\">\n        <div style=\"border-bottom: 2px solid #e0f2fe; padding-bottom: 8px; margin-bottom: 16px;\">\n          <h2 style=\"margin: 0; font-size: 20px; color: #0369a1; display: flex; align-items: center;\">\n            <span style=\"margin-right: 8px;\">📝</span> Tailored Cover Letter\n          </h2>\n        </div>\n        <div style=\"background-color: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #38bdf8; border-radius: 8px; padding: 22px 25px; font-size: 14px; color: #334155; line-height: 1.7;\">\n          <p style=\"margin: 0 0 12px; font-weight: 600;\">Dear Hiring Manager,</p>\n          \n          <p style=\"margin: 0 0 12px;\">\n            I am a recent Computer Science graduate (2025) with hands‑on experience in AI‑driven automation. My academic focus and internship work have equipped me with the core skills you seek: n8n workflow design, JavaScript/Python scripting, and LLM integration.\n          </p>\n\n          <p style=\"margin: 0 0 8px; font-weight: 600; color: #0284c7;\">Relevant Experience:</p>\n          <ul style=\"margin: 0 0 12px; padding-left: 18px;\">\n            <li>At DeltaRetail (Jun‑Sep 2025) I built a production n8n workflow that pulled order data from Google Sheets, cleaned it with JavaScript, and dispatched real‑time updates to customers via email and WhatsApp. The automation eliminated manual entry and saved roughly 10 hours each week, directly matching your need for reliable, client‑facing solutions.</li>\n          </ul>\n\n          <p style=\"margin: 0 0 8px; font-weight: 600; color: #0284c7;\">Fit and Learning:</p>\n          <ul style=\"margin: 0 0 12px; padding-left: 18px;\">\n            <li>Proficient in JavaScript, Python, REST APIs, JSON, and webhooks.</li>\n            <li>Developed a retrieval‑augmented generation (RAG) chatbot for Arabic customer support using OpenAI, demonstrating prompt engineering and document retrieval capabilities.</li>\n            <li>Certified in the n8n AI Automation Track, confirming practical workflow expertise.</li>\n          </ul>\n\n          <p style=\"margin: 0 0 14px;\">\n            I am proactively expanding my toolkit by studying vector databases (Pinecone, Qdrant) and Docker to ensure seamless deployment and scalability of AI services. I am excited to bring my automation experience and continuous‑learning mindset to Nile Flow Technologies.\n          </p>\n\n          <p style=\"margin: 0;\">Kind regards,<br><strong>Mariam Hassan</strong></p>\n        </div>\n      </div>\n\n      <!-- Section: Interview Preparation -->\n      <div style=\"margin-bottom: 20px;\">\n        <div style=\"border-bottom: 2px solid #e0f2fe; padding-bottom: 8px; margin-bottom: 16px;\">\n          <h2 style=\"margin: 0; font-size: 20px; color: #0369a1; display: flex; align-items: center;\">\n            <span style=\"margin-right: 8px;\">💡</span> Interview Preparation\n          </h2>\n        </div>\n\n        <!-- Question 1 -->\n        <div style=\"background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 12px;\">\n          <div style=\"color: #0369a1; font-weight: 600; font-size: 14.5px; margin-bottom: 6px;\">\n            💬 1. How did you build the n8n workflow that sent order updates from Google Sheets to customers?\n          </div>\n          <div style=\"color: #475569; font-size: 13.5px; background: #f8fafc; padding: 10px 14px; border-radius: 6px; border-left: 3px solid #38bdf8;\">\n            Created six workflows using Google Sheets and HTTP Request nodes, connected the store’s REST API via webhooks, and wrote JavaScript in Code nodes to clean and reformat data, cutting 10 hours of manual work each week.\n          </div>\n        </div>\n\n        <!-- Question 2 -->\n        <div style=\"background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 12px;\">\n          <div style=\"color: #0369a1; font-weight: 600; font-size: 14.5px; margin-bottom: 6px;\">\n            💬 2. What is your approach to prompt engineering for a RAG chatbot?\n          </div>\n          <div style=\"color: #475569; font-size: 13.5px; background: #f8fafc; padding: 10px 14px; border-radius: 6px; border-left: 3px solid #38bdf8;\">\n            Design concise system prompts, retrieve relevant FAQ passages, embed queries with OpenAI embeddings, and construct few‑shot examples that guide the model to extract accurate answers while handling ambiguous inputs gracefully.\n          </div>\n        </div>\n\n        <!-- Question 3 -->\n        <div style=\"background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 12px;\">\n          <div style=\"color: #0369a1; font-weight: 600; font-size: 14.5px; margin-bottom: 6px;\">\n            💬 3. Tell me about a time you fixed a failing automation workflow.\n          </div>\n          <div style=\"color: #475569; font-size: 13.5px; background: #f8fafc; padding: 10px 14px; border-radius: 6px; border-left: 3px solid #38bdf8;\">\n            <strong style=\"color: #0284c7;\">Situation:</strong> A workflow repeatedly timed out during data sync.<br>\n            <strong style=\"color: #0284c7;\">Action:</strong> Added retry logic, error handling, and detailed logging in n8n’s Code nodes.<br>\n            <strong style=\"color: #0284c7;\">Result:</strong> Downtime dropped to zero and the client regained confidence in the system.\n          </div>\n        </div>\n\n        <!-- Question 4 -->\n        <div style=\"background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 12px;\">\n          <div style=\"color: #0369a1; font-weight: 600; font-size: 14.5px; margin-bottom: 6px;\">\n            💬 4. Describe a moment when you helped a peer understand a difficult Python concept.\n          </div>\n          <div style=\"color: #475569; font-size: 13.5px; background: #f8fafc; padding: 10px 14px; border-radius: 6px; border-left: 3px solid #38bdf8;\">\n            Students struggled with list comprehensions in a lab. Demonstrated step‑by‑step examples and created a mini‑exercise. Their assignment scores improved, and several peers thanked me for the clear explanation.\n          </div>\n        </div>\n\n        <!-- Question 5 -->\n        <div style=\"background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px;\">\n          <div style=\"color: #0369a1; font-weight: 600; font-size: 14.5px; margin-bottom: 6px;\">\n            💬 5. What is your biggest skill gap and how will you close it?\n          </div>\n          <div style=\"color: #475569; font-size: 13.5px; background: #f8fafc; padding: 10px 14px; border-radius: 6px; border-left: 3px solid #38bdf8;\">\n            I lack hands‑on experience with vector databases (Pinecone/Qdrant) and Docker/Linux deployment. I’ll enroll in a focused Coursera track, build a personal RAG project using Pinecone, and deploy it via Docker on a Linux VM.\n          </div>\n        </div>\n\n      </div>\n\n    </div>\n\n    <!-- Footer -->\n    <div style=\"background-color: #f1f8fd; border-top: 1px solid #e2e8f0; padding: 18px; text-align: center; font-size: 12px; color: #64748b;\">\n      Generated automatically by <strong>AI Career Automation Engine</strong> • All rights reserved\n    </div>\n\n  </div>\n\n</body>\n</html>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1776,
+        -48
+      ],
+      "id": "5b064647-1a40-4e13-948e-428e93efff28",
+      "name": "Send a message",
+      "webhookId": "51219b49-57b4-4672-b5d9-f32e8b4c754d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Y0C1REGBGPmMgN7T",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "AI Agent that can write the cover litter of email.",
+        "text": "=TASK FROM THE CAREER COACH:\n{{ $fromAI('task', 'What this specialist should do, plus any earlier results it needs (for example the CV Matcher strengths and gaps)', 'string') }}\n \nJOB DESCRIPTION:\n{{ $('Prepare Application').item.json[\"job-desecription\"] }}\n \nCANDIDATE CV:\n{{ $('Prepare Application').item.json[\"CV-text\"] }}",
+        "options": {
+          "systemMessage": "=You are a professional cover letter writer. Write a complete, ready-to-send cover letter.\n- 3 or 4 short paragraphs, maximum 230 words, plain text paragraphs only.\n- Start with 'Dear Hiring Manager,' and end with 'Kind regards,' and the candidate's name.\n- Use only facts from the CV. Never invent experience, numbers or companies.\n- Connect 2 or 3 strengths to the job requirements, and mention one gap positively as something the candidate is learning.\nReturn only the letter, without a title.\n \nFormatting rules (very important):\n- Never use tables, code blocks or horizontal lines.\n- Use short ### headings and simple bullet points (one line each).\n- No quotes from the CV, just short facts.\n- Be concise."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        864,
+        224
+      ],
+      "id": "b9b8f9e5-0516-45f2-80f9-788d20ef0302",
+      "name": "Cover Letter Writer"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        368,
+        224
+      ],
+      "id": "879494ff-916e-4d6a-a28a-1ebe198b242d",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "0L2Vqf7dt7btXxr7",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "AI Agent that can apply on job with cover litter.",
+        "text": "=TASK FROM THE CAREER COACH:\n{{ $fromAI('task', 'What this specialist should do, plus any earlier results it needs (for example the CV Matcher strengths and gaps)', 'string') }}\n \nJOB DESCRIPTION:\n{{ $('Prepare Application').item.json[\"job-desecription\"] }}\nCANDIDATE CV:\n{{ $('Prepare Application').item.json[\"CV-text\"] }}",
+        "options": {
+          "systemMessage": "You are an application sender agent.\nYour ONLY task:\nTake the cover letter written by the Cover Letter Writer, and immediately call the 'Generate PDF and Send Email' tool, passing that text into 'cover_letter_text'.\nDo not change or invent anything; just execute the tool."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        1488,
+        224
+      ],
+      "id": "d296628a-6550-472e-aab6-4755b1d30b36",
+      "name": "Applying job"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1488,
+        416
+      ],
+      "id": "7e0c3548-ddeb-4e2c-ad89-bb855314335b",
+      "name": "Groq Chat Model3",
+      "credentials": {
+        "groqApi": {
+          "id": "cLE5ZkubKoYfVkCm",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $json['Job description'] || '';\nconst emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/;\nconst match = text.match(emailRegex);\n\nreturn {\n  json: {\n    ...$json,\n    extractedEmail: match ? match[0] : null\n  },\n  binary: $binary // مهم جداً للحفاظ على ملف الـ CV لنود Read CV التالية\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        -144
+      ],
+      "id": "90400bc7-aedf-4c3e-988c-cc5366207872",
+      "name": "Extract hiring manger email"
+    },
+    {
+      "parameters": {
+        "resource": "document",
+        "modelId": {
+          "__rl": true,
+          "value": "YOUR_ID",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.5-flash-lite"
+        },
+        "text": "Transcribe all the text in this CV exactly as written, section by section (contact details, summary, experience, education, skills, ",
+        "inputType": "binary",
+        "binaryPropertyName": "=Your_CV",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        256,
+        32
+      ],
+      "id": "d50d6270-193d-4c53-9e85-4adb931f2bff",
+      "name": "Read CV",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "0L2Vqf7dt7btXxr7",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "=Call this tool to generate the PDF and send the job application email to the hiring manager. You MUST pass the complete cover letter text into the 'cover_letter_text' parameter.",
+        "workflowId": {
+          "__rl": true,
+          "value": "YOUR_ID",
+          "mode": "list",
+          "cachedResultName": "Generate PDF and Send Email"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "hiring_manager_email": "={{ $('Extract hiring manger email').item.json.extractedEmail }}",
+            "cover_letter_text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('cover_letter_text', ``, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "cover_letter_text",
+              "displayName": "cover_letter_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "hiring_manager_email",
+              "displayName": "hiring_manager_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        1632,
+        416
+      ],
+      "id": "1b021398-1a6c-47c9-ac06-4782c505ff3d",
+      "name": "Call 'Generate PDF and Send Email'"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        560,
+        -48
+      ],
+      "id": "69f5d70a-e298-476b-917c-a04c494e317d",
+      "name": "Merge"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Job Application Form": {
+      "main": [
+        [
+          {
+            "node": "Extract hiring manger email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read CV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Application": {
+      "main": [
+        [
+          {
+            "node": "Career Coach",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CV Matcher": {
+      "ai_tool": [
+        [
+          {
+            "node": "Career Coach",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interview Coach": {
+      "ai_tool": [
+        [
+          {
+            "node": "Career Coach",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "CV Matcher",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Cover Letter Writer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Interview Coach",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Career Coach": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cover Letter Writer": {
+      "ai_tool": [
+        [
+          {
+            "node": "Career Coach",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Career Coach",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Applying job": {
+      "ai_tool": [
+        [
+          {
+            "node": "Career Coach",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Applying job",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract hiring manger email": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read CV": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Call 'Generate PDF and Send Email'": {
+      "ai_tool": [
+        [
+          {
+            "node": "Applying job",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Prepare Application",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "34swIVVb8VQu8PfJ",
+    "timezone": "Africa/Cairo",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "820d9d68-1eb8-4fc0-a1ff-5c23e3490557",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d58abe3d026105302dfaaae407886b4870984664c700ea400be5f856e1e5d913"
+  },
+  "nodeGroups": [],
+  "id": "za2xQPWF0KT702xi",
+  "tags": []
+}

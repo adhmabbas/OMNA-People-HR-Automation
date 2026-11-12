@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OMNA People - AI HR Automation System</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 32px 16px;
+      line-height: 1.6;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    h1 { margin: 0; font-size: 1.8rem; }
+    .subtitle { color: var(--muted); margin-top: 4px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+    .badge.on { background: #dcfce7; color: #166534; }
+    .badge.off { background: #fee2e2; color: #991b1b; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    h2 { margin-top: 0; font-size: 1.25rem; }
+    #msgs {
+      border: 1px solid var(--border);
+      background: #f1f5f9;
+      border-radius: 12px;
+      padding: 16px;
+      height: 260px;
+      overflow-y: auto;
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .msg {
+      max-width: 80%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      white-space: pre-wrap;
+    }
+    .me {
+      align-self: flex-end;
+      background: var(--primary);
+      color: white;
+      border-bottom-right-radius: 2px;
+    }
+    .bot {
+      align-self: flex-start;
+      background: white;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-bottom-left-radius: 2px;
+    }
+    #ask { display: flex; gap: 10px; }
+    #q {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+    button, .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: background 0.2s;
+    }
+    button:hover, .btn:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #0f172a; }
+    .btn-secondary:hover { background: #334155; }
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    a.disabled { pointer-events: none; opacity: 0.4; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <h1>OMNA People</h1>
+      <div class="subtitle">End-to-End AI HR Automation & Recruitment System powered by n8n</div>
+    </div>
+    <span class="badge" id="status">Checking system status...</span>
+  </div>
+
+  <div class="card">
+    <h2>Ask HR Policy Assistant (RAG)</h2>
+    <p style="color: var(--muted); font-size: 0.9rem; margin-top: -8px;">
+      Ask about annual leave, working hours, remote work, or benefits in English or Arabic.
+    </p>
+    <div id="msgs">
+      <div class="msg bot">Hello! I am the OMNA People HR Assistant. How can I help you today?</div>
+    </div>
+    <form id="ask">
+      <input id="q" placeholder="e.g., How many annual leave days do I get?" required autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Candidate Portal</h2>
+    <p style="color: var(--muted); font-size: 0.9rem; margin-top: -8px;">
+      Submit your application for automated AI screening or get a personalized CV coaching report.
+    </p>
+    <div class="actions">
+      <a id="applyLink" class="btn" target="_blank" rel="noopener">Apply for a Job</a>
+      <a id="coachLink" class="btn btn-secondary" target="_blank" rel="noopener">Get AI Coaching Report</a>
+    </div>
+  </div>
+
+<script>
+const CONFIG = {
+  n8nBase: "https://safeguard-couch-knelt.ngrok-free.dev",
+  chat: "/webhook/ca222471-17ef-4a01-9f65-3a15a0f4ce9a/chat",
+  applyForm: "/form/3008e56e-3c71-4797-9088-bb641a7cfecc",
+  coachForm: "/form/a34b739e-5015-4151-b061-7b69b1e456d9"
+};
+
+const $ = s => document.querySelector(s);
+const sessionId = crypto.randomUUID();
+const HEADERS = { "Content-Type": "application/json", "ngrok-skip-browser-warning": "1" };
+
+$("#applyLink").href = CONFIG.n8nBase + CONFIG.applyForm;
+$("#coachLink").href = CONFIG.n8nBase + CONFIG.coachForm;
+
+function setStatus(online) {
+  $("#status").textContent = online ? "● System Online" : "● System Offline";
+  $("#status").className = "badge " + (online ? "on" : "off");
+  document.querySelectorAll("#applyLink, #coachLink").forEach(a => a.classList.toggle("disabled", !online));
+}
+
+async function checkStatus() {
+  try {
+    const res = await fetch(CONFIG.n8nBase + CONFIG.chat, {
+      method: "POST",
+      headers: HEADERS,
+      body: JSON.stringify({ action: "loadPreviousSession", sessionId })
+    });
+    setStatus(res.ok);
+  } catch (err) {
+    setStatus(false);
+  }
+}
+
+checkStatus();
+
+function addMsg(cls, text) {
+  const d = document.createElement("div");
+  d.className = "msg " + cls;
+  d.textContent = text;
+  const box = $("#msgs");
+  box.append(d);
+  box.scrollTop = box.scrollHeight;
+  return d;
+}
+
+$("#ask").onsubmit = async e => {
+  e.preventDefault();
+  const q = $("#q").value.trim();
+  if (!q) return;
+  $("#q").value = "";
+  addMsg("me", q);
+  const bot = addMsg("bot", "Thinking...");
+  try {
+    const r = await fetch(CONFIG.n8nBase + CONFIG.chat, {
+      method: "POST",
+      headers: HEADERS,
+      body: JSON.stringify({ action: "sendMessage", sessionId, chatInput: q })
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    bot.textContent = data.output || "No response received.";
+    setStatus(true);
+  } catch (err) {
+    bot.textContent = "The HR assistant is currently offline. Please ensure the n8n server is running.";
+    setStatus(false);
+  }
+};
+</script>
+</body>
+</html>
